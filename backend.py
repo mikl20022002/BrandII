@@ -8,16 +8,19 @@ def create_dirs():
     tg_path = ['accounts', 'tg']
     vk_path = ['accounts', 'vk']
     buffer_path = ['accounts', 'buffer']
+    unify_profiles_path = ['accounts', 'profiles']
 
     tg_path = os.path.join(*tg_path)
     vk_path = os.path.join(*vk_path)
     buffer_path = os.path.join(*buffer_path)
+    unify_profiles_path = os.path.join(*unify_profiles_path)
 
     os.makedirs(tg_path, exist_ok=True)
     os.makedirs(vk_path, exist_ok=True)
     os.makedirs(buffer_path, exist_ok=True)
+    os.makedirs(unify_profiles_path, exist_ok=True)
 
-    return tg_path, vk_path, buffer_path
+    return tg_path, vk_path, buffer_path, unify_profiles_path
 
 
 def create_media_group(media_list):
@@ -241,4 +244,46 @@ def get_buffer_special(user_id):
 # endregion
 
 
-TG_BASE_PATH, VK_BASE_PATH, BUFFER_BASE_PATH = create_dirs()
+# region unify profiles
+def create_profile_json(user_id):
+    prof_path = os.path.join(PROFILES_BASE_PATH, str(user_id))
+    with open(prof_path, 'w') as file:
+        data = {'unify':'not',
+                'name':None,
+                'sex':None,
+                'age':None,
+                'profession':None,
+                'hobbies':None,
+                'hashtags':None,
+                'content': None,
+                'emoji':None}
+        json.dump(data, file, indent=4)
+
+def update_profile(user_id, type, text):
+    prof_path = os.path.join(PROFILES_BASE_PATH, str(user_id))
+    with open(prof_path, 'r') as file:
+        data = json.load(file)
+
+    data[type] = text
+
+    with open(prof_path, 'w') as file:
+        json.dump(data, file, indent=4)
+
+def get_profile_atr(user_id, type):
+    prof_path = os.path.join(PROFILES_BASE_PATH, str(user_id))
+    with open(prof_path, 'r') as file:
+        data = json.load(file)
+
+    info = data[type]
+    return info
+
+def need_unify(user_id):
+    unify = get_profile_atr(user_id, 'unify')
+    if unify == 'ok':
+        return True
+    else:
+        return False
+#endregion
+
+
+TG_BASE_PATH, VK_BASE_PATH, BUFFER_BASE_PATH, PROFILES_BASE_PATH = create_dirs()

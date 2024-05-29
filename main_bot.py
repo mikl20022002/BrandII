@@ -22,6 +22,7 @@ bot_commands = [
 
 bot.set_my_commands(bot_commands)
 
+
 # region sending text\files to user
 def text_to_user(chat_id: int, text: str, reply_markup=None) -> None:
     bot.send_message(chat_id, text, reply_markup=reply_markup, parse_mode=None)
@@ -48,6 +49,7 @@ def media_to_channel(channel_id, media):
     bot.send_media_group(channel_id, media)
 
 # endregion
+
 
 # region tg registration
 
@@ -121,6 +123,7 @@ def look_tg_channel(message):
 
 # endregion
 
+
 # region useful func
 def create_multikeyboard(button_list:list[dict]):
     '''
@@ -160,6 +163,7 @@ def func_check(message):
 
 # endregion
 
+
 # region registration of new user
 
 def start(message):
@@ -187,8 +191,11 @@ def start(message):
 
         insert_account_info(data)
 
+        #создаем папки и файлы
         create_tg_json(message.chat.id)
         create_buffer(message.chat.id)
+        create_profile_json(message.chat.id)
+
         update_editing_status(message.chat.id, 0)
 
     user_tech_info = get_user_row(message.chat.id, 'tech_info')
@@ -281,16 +288,102 @@ def main_menu(message):
     b1 = types.InlineKeyboardButton("Мои аккаунты", callback_data='my_accounts')
     b2 = types.InlineKeyboardButton("Создать пост", callback_data='create_post_main_menu')
     b3 = types.InlineKeyboardButton("Создать сторис", callback_data='create_story_main_menu')
+    b4 = types.InlineKeyboardButton("Унифицировать профиль", callback_data='unify_profile')
 
     # b4 = types.InlineKeyboardButton("Подготовить записи", callback_data='prepare_post')
     b5 = types.InlineKeyboardButton('Разослать записи', callback_data='sending_posts_check')
-    markup.add(b1, b2, b3, b5)
+    markup.add(b4, b1, b2, b3, b5)
 
     text_to_user(message.chat.id, MAIN_MENU_MESSAGE, reply_markup=markup)
 
 def all_prepare_post(message):
     tg_prepare_post(message)
     #(на будущее) подготовка для вк и инсты должна начинатся отсюда
+
+
+#region unify profile
+
+    #можно добавить кнопку пропуска вопроса для хэштэгов и эмодзи.
+
+def unify_profile_step1(message):
+    text_to_user(message.chat.id, UNIFY_PROFILE_STEP1)
+    text_to_user(message.chat.id, UNIFY_PROFILE_QUE1)
+    bot.register_next_step_handler(message, unify_profile_step2)
+
+def unify_profile_step2(message):
+    if func_check(message):
+        return
+
+    update_profile(message.chat.id, 'name', message.text)
+    text_to_user(message.chat.id, UNIFY_PROFILE_QUE2)
+    bot.register_next_step_handler(message, unify_profile_step3)
+
+def unify_profile_step3(message):
+    if func_check(message):
+        return
+
+    update_profile(message.chat.id, 'sex', message.text)
+    text_to_user(message.chat.id, UNIFY_PROFILE_QUE3)
+    bot.register_next_step_handler(message, unify_profile_step4)
+
+def unify_profile_step4(message):
+    if func_check(message):
+        return
+
+    update_profile(message.chat.id, 'age', message.text)
+    text_to_user(message.chat.id, UNIFY_PROFILE_QUE4)
+    bot.register_next_step_handler(message, unify_profile_step5)
+
+def unify_profile_step5(message):
+    if func_check(message):
+        return
+
+    update_profile(message.chat.id, 'profession', message.text)
+    text_to_user(message.chat.id, UNIFY_PROFILE_QUE5)
+    bot.register_next_step_handler(message, unify_profile_step6)
+
+def unify_profile_step6(message):
+    if func_check(message):
+        return
+
+    update_profile(message.chat.id, 'hobbies', message.text)
+    text_to_user(message.chat.id, UNIFY_PROFILE_QUE6)
+    bot.register_next_step_handler(message, unify_profile_step7)
+
+def unify_profile_step7(message):
+    if func_check(message):
+        return
+
+    update_profile(message.chat.id, 'hashtags', message.text)
+    update_profile(message.chat.id, 'unify', 'ok')
+
+    text_to_user(message.chat.id, UNIFY_PROFILE_QUE7)
+    bot.register_next_step_handler(message, unify_profile_step8)
+
+def unify_profile_step8(message):
+    if func_check(message):
+        return
+
+    update_profile(message.chat.id, 'content', message.text)
+    text_to_user(message.chat.id, UNIFY_PROFILE_QUE8)
+    bot.register_next_step_handler(message, unify_profile_step9)
+
+def unify_profile_step9(message):
+    if func_check(message):
+        return
+
+    update_profile(message.chat.id, 'emoji', message.text)
+    unify_profile_step10(message)
+
+def unify_profile_step10(message):
+    if func_check(message):
+        return
+
+    text_to_user(message.chat.id, UNIFY_PROFILE_FINISH)
+    main_menu(message)
+
+
+# endregion
 
 
 # region set post text
@@ -463,6 +556,11 @@ def tg_prepare_channel(channel_id, user_id, prompt_num) -> None:
 
         #(эксперементальное) дробит текст на параграфы и переписывает каждый параграф отдельно затем объединяет.
         text = change_text(text, prompt_num)
+        #унифицируем если нужна унификация (если заполнена доп инфа по аккаунту)
+        if need_unify(user_id):
+            text = unify_text(user_id, text)
+        #даляем ML-ность текста
+        text = delete_ml_presence(text)
         tg_json_add_text(user_id, channel_id, text)
 
     #Подготовка медиа. Пока все просто добавляется к файлам.
@@ -504,6 +602,24 @@ def change_text(text, prompt_num):
         paragraphs = paragraphs[1:]
     text = '\n\n'.join(paragraphs)
 
+    return text
+
+
+def unify_text(user_id, text):
+    user_profile = f'Имя: {get_profile_atr(user_id, "name")}. ' \
+                   f'Пол: {get_profile_atr(user_id, "sex")}. ' \
+                   f'Возраст: {get_profile_atr(user_id, "age")}. ' \
+                   f'Профессия: {get_profile_atr(user_id, "profession")}. ' \
+                   f'Увлечения: {get_profile_atr(user_id, "hobbies")}. ' \
+                   f'Цель моего контента: {get_profile_atr(user_id, "content")}. ' \
+                   f'Хэштеги, которые я использую: {get_profile_atr(user_id, "hashtags")}. ' \
+                   f'Эмодзи которые я часто использую: {get_profile_atr(user_id, "emoji")}. '
+    print(user_profile)
+    text = ask_gpt(UNIFY_TEXT_PROMPT_1 + user_profile + 'Перепиши этот текст:  ' + text)
+    return text
+
+def delete_ml_presence(text):
+    text = ask_gpt(DELETE_ML_PRESENCE_PROMPT + text)
     return text
 
 def text_to_paragraphs(text:str) -> list:
@@ -734,6 +850,9 @@ def handle_callback(call):
 
     elif call.data == 'create_story_main_menu':
         create_story_main_menu_step1(call.message)
+
+    elif call.data == 'unify_profile':
+        unify_profile_step1(call.message)
 # endregion
 
 bot.infinity_polling()
